@@ -6,20 +6,20 @@ from twisted.python import log
 import sys
 import re
 
-# rules from https://gitweb.torproject.org/https-everywhere.git/tree/HEAD:/src/chrome/content/rules
+# TODO read rules XML from:
+# https://gitweb.torproject.org/https-everywhere.git/tree/HEAD:/src/chrome/content/rules
 RE1FROM = r"^http://(www\.)?twitter\.com/"
 RE1TO = r"https://twitter.com/"
 
-
 class BouncingProxyRequest(proxy.ProxyRequest):
     def process(self):
-	print self.received_headers
-        print self.requestHeaders
-	print self.uri
-        
+        log.msg(self.received_headers)
+        log.msg(self.requestHeaders)
+        log.msg(self.uri)
+
         if re.match(RE1FROM, self.uri):
             self.redirect(re.sub(RE1FROM, RE1TO, self.uri))
-	    self.finish()
+            self.finish()
         else:
             return proxy.ProxyRequest.process(self)
 
@@ -28,10 +28,14 @@ class BouncingProxy(proxy.Proxy):
         self.requestFactory = BouncingProxyRequest
         proxy.Proxy.__init__(self)
 
-log.startLogging(sys.stdout)
+class BouncingFactory(http.HTTPFactory):
+      def __init__(self):
+          self.protocol = BouncingProxy
+          http.HTTPFactory.__init__(self)
 
-f = http.HTTPFactory()
-f.protocol = BouncingProxy
 
-reactor.listenTCP(8080,f)
-reactor.run()
+if __name__ == "__main__":
+    log.startLogging(sys.stdout)
+
+    reactor.listenTCP(8080, BouncingFactory())
+    reactor.run()
